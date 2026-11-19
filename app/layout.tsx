@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { Navbar } from "@/components/site/navbar";
 // import { Footer } from "@/components/site/footer";
 import { Footer } from "@/components/site/footer";
+import { Toaster } from "@/components/ui/toast";
 
 const geist = Geist({ subsets: ['latin'], variable: '--font-sans' })
 
@@ -42,6 +43,7 @@ export default function RootLayout({
               <main id="main-content" className="flex-1">
                 {children}
               </main>
+              <Toaster></Toaster>
               <Footer />
             </div>
           </SessionProvider>

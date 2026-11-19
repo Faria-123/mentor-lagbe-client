@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input"
 import { cn } from "cn"
 import type { UserRole } from "@/lib/types"
 import { authClient } from "@/lib/auth-client"
+import { toast } from "../ui/toast"
 
 type SignUpValues = {
   name: string
@@ -94,6 +95,10 @@ function SignUpForm({
     }
     if (data) {
       console.log("[sign-up] data", data);
+      toast.add({
+        title: "Sign up successful",
+        description: "Please Sign in to continue.",
+      })
     }
     // setError(null)
     // setCollected(values)

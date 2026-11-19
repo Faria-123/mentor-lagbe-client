@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { authClient } from "@/lib/auth-client"
 
 type SignInValues = {
   email: string
@@ -21,7 +22,7 @@ type SignInValues = {
 function SignInForm({ next }: { next?: string }) {
   const [collected, setCollected] = React.useState<SignInValues | null>(null)
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
     const formData = new FormData(event.currentTarget)
@@ -34,11 +35,18 @@ function SignInForm({ next }: { next?: string }) {
     }
 
     // TODO: replace this with authClient.signIn.email(values) once auth is wired.
-    console.log("[sign-in] collected form data", {
-      ...values,
-      password: "••••••••",
-    })
-    setCollected(values)
+    const { data, error } = await authClient.signIn.email({
+      email: values.email, // required, The email address of the user.
+      password: values.password, // required, The password of the user. It should be at least 8 characters long and max 128 by default.
+      rememberMe: values.remember, // If false, the user will be signed out when the browser is closed. (optional) (default: true)
+      callbackURL: '/', // An optional URL to redirect to after the user signs in. (optional)
+    });
+    // console.log("[sign-in] collected form data", {
+    //   ...values,
+    //   password: "••••••••",
+    // })
+
+    // setCollected(values)
   }
 
   return (
