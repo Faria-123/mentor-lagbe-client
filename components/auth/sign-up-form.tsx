@@ -21,6 +21,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { cn } from "cn"
 import type { UserRole } from "@/lib/types"
+import { authClient } from "@/lib/auth-client"
 
 type SignUpValues = {
   name: string
@@ -53,7 +54,7 @@ function SignUpForm({
   const [error, setError] = React.useState<string | null>(null)
   const [collected, setCollected] = React.useState<SignUpValues | null>(null)
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
     const formData = new FormData(event.currentTarget)
@@ -73,6 +74,13 @@ function SignUpForm({
     }
 
     // TODO: replace this with authClient.signUp.email(values) once auth is wired.
+    const { data, error } = await authClient.signUp.email({
+      name: values.name, // required, The name of the user.
+      email: values.email, // required, The email address of the user.
+      password: values.password, // required, The password of the user. It should be at least 8 characters long and max 128 by default.
+      // role: values.role
+      callbackURL: "/", // An optional URL to redirect to after the user signs up.
+    });
     // console.log("[sign-up] collected form data", {
     //   name: values.name,
     //   email: values.email,
@@ -80,9 +88,15 @@ function SignUpForm({
     //   role: values.role,
     // })
     console.log(values);
+    if (error) {
+      console.error("[sign-up] error", error);
 
-    setError(null)
-    setCollected(values)
+    }
+    if (data) {
+      console.log("[sign-up] data", data);
+    }
+    // setError(null)
+    // setCollected(values)
   }
 
   return (
