@@ -15,7 +15,8 @@ export default async function SignUpPage({
   searchParams: Promise<{ role?: string | string[] }>
 }) {
   const params = await searchParams
-  const defaultRole = params.role === "tutor" ? "tutor" : "student"
+  const defaultRole =
+    params.role === "tutor" || params.role === "admin" ? params.role : "student"
 
   return (
     <AuthShell mode="sign-up">

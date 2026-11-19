@@ -7,6 +7,7 @@ import {
   CheckCircle2Icon,
   GraduationCapIcon,
   PresentationIcon,
+  ShieldCheckIcon,
 } from "lucide-react"
 
 import { PasswordInput } from "@/components/auth/password-input"
@@ -29,7 +30,7 @@ type SignUpValues = {
   email: string
   password: string
   confirmPassword: string
-  role: Extract<UserRole, "student" | "tutor">
+  role: UserRole
 }
 
 const roleOptions = [
@@ -45,13 +46,15 @@ const roleOptions = [
     description: "Post tuitions",
     icon: PresentationIcon,
   },
+  {
+    value: "admin" as const,
+    label: "Admin",
+    description: "Manage the platform",
+    icon: ShieldCheckIcon,
+  },
 ]
 
-function SignUpForm({
-  defaultRole = "student",
-}: {
-  defaultRole?: Extract<UserRole, "student" | "tutor">
-}) {
+function SignUpForm({ defaultRole = "student" }: { defaultRole?: UserRole }) {
   const [error, setError] = React.useState<string | null>(null)
   const [collected, setCollected] = React.useState<SignUpValues | null>(null)
 
@@ -65,7 +68,10 @@ function SignUpForm({
       email: String(formData.get("email") ?? "").trim(),
       password: String(formData.get("password") ?? ""),
       confirmPassword: String(formData.get("confirmPassword") ?? ""),
-      role: formData.get("role") === "tutor" ? "tutor" : "student",
+      role:
+        formData.get("role") === "tutor" || formData.get("role") === "admin"
+          ? (formData.get("role") as "tutor" | "admin")
+          : "student",
     }
 
     if (values.password !== values.confirmPassword) {
@@ -74,34 +80,41 @@ function SignUpForm({
       return
     }
 
-    // TODO: replace this with authClient.signUp.email(values) once auth is wired.
-    const { data, error } = await authClient.signUp.email({
+    // BetterAuth 1.7.26 doesn't type additional user fields on `signUp.email`
+    // yet, so the payload is widened. The runtime accepts `role` (see
+    // `user.additionalFields` in lib/auth.ts).
+    const result = await authClient.signUp.email({
       name: values.name, // required, The name of the user.
       email: values.email, // required, The email address of the user.
       password: values.password, // required, The password of the user. It should be at least 8 characters long and max 128 by default.
-      // role: values.role
+      role: values.role, // additional field: "student" | "tutor" | "admin"
       callbackURL: "/", // An optional URL to redirect to after the user signs up.
-    });
-    // console.log("[sign-up] collected form data", {
-    //   name: values.name,
-    //   email: values.email,
-    //   password: "••••••••",
-    //   role: values.role,
-    // })
-    console.log(values);
-    if (error) {
-      console.error("[sign-up] error", error);
+    } as unknown as Parameters<typeof authClient.signUp.email>[0])
 
+    const { data, error } = result as unknown as {
+      data?: unknown
+      error?: { message?: string }
     }
-    if (data) {
-      console.log("[sign-up] data", data);
-      toast.add({
-        title: "Sign up successful",
-        description: "Please Sign in to continue.",
-      })
+
+    if (error) {
+      console.error("[sign-up] error", error)
+      return
     }
-    // setError(null)
-    // setCollected(values)
+
+    console.log("[sign-up] signed up", {
+      name: values.name,
+      email: values.email,
+      role: values.role,
+      data,
+    })
+
+    toast.add({
+      title: "Sign up successful",
+      description: "Please Sign in to continue.",
+    })
+
+    setError(null)
+    setCollected(values)
   }
 
   return (

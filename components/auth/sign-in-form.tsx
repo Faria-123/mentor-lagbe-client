@@ -34,19 +34,29 @@ function SignInForm({ next }: { next?: string }) {
       next: next ?? null,
     }
 
-    // TODO: replace this with authClient.signIn.email(values) once auth is wired.
-    const { data, error } = await authClient.signIn.email({
+    const result = await authClient.signIn.email({
       email: values.email, // required, The email address of the user.
       password: values.password, // required, The password of the user. It should be at least 8 characters long and max 128 by default.
       rememberMe: values.remember, // If false, the user will be signed out when the browser is closed. (optional) (default: true)
-      callbackURL: '/', // An optional URL to redirect to after the user signs in. (optional)
-    });
-    // console.log("[sign-in] collected form data", {
-    //   ...values,
-    //   password: "••••••••",
-    // })
+      callbackURL: values.next ?? "/", // An optional URL to redirect to after the user signs in.
+    })
 
-    // setCollected(values)
+    const { error } = result as unknown as {
+      data?: unknown
+      error?: { message?: string }
+    }
+
+    if (error) {
+      console.error("[sign-in] error", error)
+      return
+    }
+
+    console.log("[sign-in] signed in", {
+      email: values.email,
+      remember: values.remember,
+    })
+
+    setCollected(values)
   }
 
   return (
