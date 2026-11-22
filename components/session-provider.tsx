@@ -79,8 +79,6 @@
 
 // export { SessionProvider, useSession }
 
-
-
 "use client"
 
 import * as React from "react"
@@ -106,6 +104,8 @@ function SessionProvider({ children }: { children: React.ReactNode }) {
       name: session.user.name,
       email: session.user.email,
       image: session.user.image ?? null,
+      phone: session.user.phone ?? null,
+      bio: session.user.bio ?? null,
       role: session.user.role as SessionUser["role"],
       plan: "free",
     }
@@ -125,9 +125,7 @@ function SessionProvider({ children }: { children: React.ReactNode }) {
   )
 
   return (
-    <SessionContext.Provider value={value}>
-      {children}
-    </SessionContext.Provider>
+    <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
   )
 }
 

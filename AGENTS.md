@@ -31,17 +31,21 @@ Baseline: `npm run lint` reports 2 pre-existing errors (`react-hooks/set-state-i
 - `BETTER_AUTH_DB_URI` — required, build fails without it.
 - `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET` — Better Auth server/client config.
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — optional; build prints a warning if absent but succeeds.
-- `NEXT_PUBLIC_DEMO_AUTH=true` — injects a fake signed-in user so the authenticated navbar can be previewed (`components/session-provider.tsx`).
+- `NEXT_PUBLIC_DEMO_AUTH` — no longer read by any live code; only the commented-out demo session in `components/session-provider.tsx` mentions it (`.env.example` still documents it).
 
-## Auth: two disconnected session systems
+## Auth (Better Auth + MongoDB)
 
-- **Real auth** — Better Auth + MongoDB adapter. Server config in `lib/auth.ts` (users carry a `role`: `student` | `tutor` | `admin`), client in `lib/auth-client.ts`, catch-all handler `app/api/auth/[...all]/route.ts`. Sign-in/sign-up forms live in `components/auth/` and call `authClient.*` directly.
-- **App session state** — `components/session-provider.tsx`: local React state + localStorage, consumed by `components/site/navbar.tsx` and `components/pricing/subscribe-button.tsx`. Its `useSession` is imported from `@/components/session-provider`, **not** from `lib/auth-client` — both export a `useSession`, and they are unrelated.
-- The two are not wired together yet: a successful Better Auth sign-in does not update the navbar. `session-provider.tsx` carries a TODO to swap to BetterAuth's `useSession()`. Be explicit about which system you are changing.
+- Server config in `lib/auth.ts` (`user.additionalFields`: `role`, `phone`, `bio`), client in `lib/auth-client.ts`, catch-all handler `app/api/auth/[...all]/route.ts`. Sign-in/sign-up forms live in `components/auth/` and call `authClient.*` directly.
+- `inferAdditionalFields(...)` must sit inside the `plugins: []` array of `createAuthClient`. Better Auth reads additional fields from `options.plugins` only — spreading it at the top level silently drops them from `session.user.*` and from `updateUser`'s input type.
+- `components/session-provider.tsx` wraps `authClient.useSession()` and exposes `{ user, isPending, signOut }` (`user` is a mapped `SessionUser` from `lib/types.ts`). It is consumed by `components/site/navbar.tsx` and `components/pricing/subscribe-button.tsx`.
+- Two `useSession` exports exist: import the one from `@/components/session-provider` in components; the `lib/auth-client` one is Better Auth's raw hook and is used inside the provider.
+- `authClient.updateUser()` refreshes the session cookie and flips Better Auth's client session signal, so `useSession()` re-renders and the navbar avatar picks up a new `user.image` with no manual refetch.
+- Private routes must wait for `isPending === false` before redirecting to `/sign-in` — see the guard in `components/profile/profile-form.tsx`; otherwise reloading while signed in bounces the user to login.
 
 ## Structure
 
 - `app/(public)/` — landing, pricing, how-it-works. `app/(auth)/` — sign-in, sign-up, wrapped in `AuthShell`. New pages go in the matching route group.
+- `app/dashboard/` — authenticated pages (currently `profile/`), no layout yet; it sits directly under the root layout (navbar + footer). Client-side form components go in `components/profile/`.
 - `@/*` maps to the repository root (`@/components/...`, `@/lib/...`), not `src/`.
 - Route groups are `(public)` / `(auth)`; there is no `src/` directory.
 
