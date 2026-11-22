@@ -146,6 +146,7 @@ function Navbar() {
   const router = useRouter()
   const { user, signOut } = useSession()
   const [mobileOpen, setMobileOpen] = React.useState(false)
+  console.log("user", user)
 
   const closeMobile = React.useCallback(() => setMobileOpen(false), [])
 

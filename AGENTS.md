@@ -10,22 +10,46 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Repository guide
 
+MentorLagbe client: Next.js 16 (App Router, Turbopack) + Tailwind v4 + shadcn. The assignment spec is `Assignment 9-Category_001.pdf` at the repo root.
+
 ## Commands
 
 - `npm run dev`, `npm run build` (Next.js 16 + Turbopack).
 - `npm run typecheck` — `tsc --noEmit`; currently passes.
-- `npm run lint` — `eslint` flat config over the whole repo. For focused checks use `npx eslint <path>`; there is no `next lint`.
-- Format only files you change: `npx prettier --write <files>`. Avoid `npm run format`; it rewrites every TS/TSX file and currently changes 26 baseline files.
-- No test runner or CI is configured. Verify changes with typecheck, lint, and build.
+- `npm run lint` — ESLint flat config over the whole repo. For focused checks use `npx eslint <path>`; there is no `next lint` subcommand.
+- Format only files you change: `npx prettier --write <files>`. Avoid `npm run format`; it rewrites every TS/TSX file and 26 files currently fail `prettier --check` at baseline.
+- No test runner and no CI are configured. Verify with typecheck → lint → build.
 
-Baseline: `npm run lint` currently reports 2 errors in `components/ui/carousel.tsx` and `hooks/use-mobile.ts` (`react-hooks/set-state-in-effect`). Don't attribute them to your change unless you edited those files.
+Baseline: `npm run lint` reports 2 pre-existing errors (`react-hooks/set-state-in-effect`) in `components/ui/carousel.tsx` and `hooks/use-mobile.ts`. Don't attribute them to your change unless you edited those files.
+
+## Build requires `.env`
+
+`next build` (and `next dev`) fail without a `.env` file present: `lib/auth.ts` constructs a `MongoClient` from `BETTER_AUTH_DB_URI` at module import, and the `/api/auth/[...all]` route pulls it in during page-data collection. The failure surfaces as `Failed to collect page data for /api/auth/[...all]`.
+
+`.env` is gitignored; `.env.example` only documents `NEXT_PUBLIC_DEMO_AUTH`. The vars actually read by code:
+
+- `BETTER_AUTH_DB_URI` — required, build fails without it.
+- `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET` — Better Auth server/client config.
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — optional; build prints a warning if absent but succeeds.
+- `NEXT_PUBLIC_DEMO_AUTH=true` — injects a fake signed-in user so the authenticated navbar can be previewed (`components/session-provider.tsx`).
+
+## Auth: two disconnected session systems
+
+- **Real auth** — Better Auth + MongoDB adapter. Server config in `lib/auth.ts` (users carry a `role`: `student` | `tutor` | `admin`), client in `lib/auth-client.ts`, catch-all handler `app/api/auth/[...all]/route.ts`. Sign-in/sign-up forms live in `components/auth/` and call `authClient.*` directly.
+- **App session state** — `components/session-provider.tsx`: local React state + localStorage, consumed by `components/site/navbar.tsx` and `components/pricing/subscribe-button.tsx`. Its `useSession` is imported from `@/components/session-provider`, **not** from `lib/auth-client` — both export a `useSession`, and they are unrelated.
+- The two are not wired together yet: a successful Better Auth sign-in does not update the navbar. `session-provider.tsx` carries a TODO to swap to BetterAuth's `useSession()`. Be explicit about which system you are changing.
+
+## Structure
+
+- `app/(public)/` — landing, pricing, how-it-works. `app/(auth)/` — sign-in, sign-up, wrapped in `AuthShell`. New pages go in the matching route group.
+- `@/*` maps to the repository root (`@/components/...`, `@/lib/...`), not `src/`.
+- Route groups are `(public)` / `(auth)`; there is no `src/` directory.
 
 ## Conventions and quirks
 
-- `@/*` maps to the repository root (`@/components/...`, `@/lib/...`), not `src/`; the App Router lives in `app/`.
-- Tailwind CSS v4 is CSS-first: there is no `tailwind.config.*`. Imports, theme tokens, and the dark variant are in `app/globals.css`; Prettier sorts classes against that file.
-- shadcn is configured with the `base-nova` style (`components.json`) and built on `@base-ui/react`, not Radix. Inspect `components/ui` before creating anything; add/update with `npx shadcn@latest add <name>`.
-- `cn` is the `cn` npm package (a clsx + tailwind-merge replacement, requires Node 22+). Existing components import `cn` from `"cn"`; `@/lib/utils` only re-exports it.
+- Tailwind CSS v4 is CSS-first: there is no `tailwind.config.*`. Imports, theme tokens, and the dark variant are in `app/globals.css`; Prettier sorts classes against that file (`.prettierrc` → `tailwindStylesheet`).
+- shadcn uses the `base-nova` style (`components.json`) built on `@base-ui/react`, **not** Radix. Inspect `components/ui` before creating anything; add/update with `npx shadcn@latest add <name>`.
+- `cn` is the `cn` npm package (clsx + tailwind-merge replacement; its `engines` require Node 22+). Components import it from `"cn"`; `@/lib/utils` only re-exports it.
 - UI primitives use `data-slot` attributes and `cva` variants; keep new components consistent.
-- `lib/highlighter.tsx` is a Shiki highlighter with lazy per-language imports. Register any new language in its `languages` map and examples in `aliases`.
+- `lib/highlighter.tsx` is a Shiki highlighter with lazy per-language imports. Register new languages in its `languages` map and examples in `aliases`.
 - Theme handling is client-side via `components/theme-provider.tsx`; pressing `d` toggles dark mode outside typing targets. Don't add a conflicting global `d` shortcut.
