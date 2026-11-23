@@ -1,45 +1,52 @@
+"use client"
+
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+
+import { useSession } from "@/components/session-provider"
 import {
-    Sidebar,
-    SidebarContent,
-    SidebarFooter,
-    SidebarGroup,
-    SidebarHeader,
-    SidebarMenu,
-    SidebarMenuItem,
-    SidebarMenuButton
-
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { useSession } from "@/lib/auth-client"
-const menuItemByRole = {
-    student: [],
-    tutor: [],
-    admin: []
-}
-export function DashboardSidebar() {
-    const { data: session, isPending } = useSession()
-    const role = session?.user?.role || "student"
-    const projects = menuItemByRole[role] || []
-    return (
-        <Sidebar>
-            <SidebarHeader />
-            <SidebarContent>
-                <SidebarGroup />
-                <SidebarGroup />
-                <SidebarGroup />
-                <SidebarMenu>
-                    {/* {projects.map((project) => (
-                        <SidebarMenuItem key={project.id}>
-                            <SidebarMenuButton render={<a href={project.url} />}>
-                                <project.icon />
-                                <span>{project.name}</span>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
-                    ))} */}
-                </SidebarMenu>
-                <SidebarGroup />
+import { menuItemByRole, roleLabels } from "@/lib/dashboard-menu"
 
-            </SidebarContent>
-            <SidebarFooter />
-        </Sidebar>
-    )
+export function DashboardSidebar() {
+  const pathname = usePathname()
+  const { user } = useSession()
+  const role = user?.role
+  const items = role ? menuItemByRole[role] : []
+
+  return (
+    <Sidebar>
+      <SidebarHeader />
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel>
+            {role ? `${roleLabels[role]} dashboard` : "Dashboard"}
+          </SidebarGroupLabel>
+          <SidebarMenu>
+            {items.map((item) => (
+              <SidebarMenuItem key={item.id}>
+                <SidebarMenuButton
+                  isActive={pathname === item.url}
+                  render={<Link href={item.url} />}
+                >
+                  <item.icon />
+                  <span>{item.name}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        </SidebarGroup>
+      </SidebarContent>
+      <SidebarFooter />
+    </Sidebar>
+  )
 }
