@@ -35,6 +35,7 @@ MentorLagbe client: Next.js 16 (App Router, Turbopack) + React 19 + Tailwind v4 
 - `BETTER_AUTH_DB_URI` — required, build fails without it (database name is hard-coded as `mentorlagbe`).
 - `BETTER_AUTH_URL` — client `baseURL` in `lib/auth-client.ts`; also read by Better Auth on the server.
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — optional; build warns but succeeds.
+- `IMGBB_API_KEY` — optional; `POST /api/upload` returns 503 without it, so the tuition form shows "Image upload is not configured" while the rest of the form still works.
 - `NEXT_PUBLIC_DEMO_AUTH` — no longer read; only mentioned in a commented-out demo block in `components/session-provider.tsx`.
 
 ## Auth (Better Auth + MongoDB)
@@ -62,5 +63,6 @@ MentorLagbe client: Next.js 16 (App Router, Turbopack) + React 19 + Tailwind v4 
 - `cn` is the `cn` npm package (clsx + tailwind-merge replacement; `engines: node >=22`). Components import it from `"cn"`; `@/lib/utils` only re-exports it.
 - UI primitives use `data-slot` attributes and `cva` variants; keep new components consistent.
 - `lib/highlighter.tsx` is a Shiki highlighter with lazy per-language imports. Register new languages in its `languages` map and examples in `aliases`.
+- Tuition banner images upload through `POST /api/upload` (server-only `IMGBB_API_KEY`) using the `uploadBannerImage` helper in `lib/imgbb.ts`; never ship the ImgBB key to the client.
 - Payments are not wired: `POST /api/stripe/checkout` does not exist and there is no Stripe dependency. `components/pricing/subscribe-button.tsx` handles the failed fetch by showing a "not connected yet" message — that fallback is intentional, not a bug.
 - Theme handling is client-side via `components/theme-provider.tsx`; pressing `d` toggles dark mode outside typing targets. Don't add a conflicting global `d` shortcut.
