@@ -27,6 +27,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/toast"
 import { uploadBannerImage } from "@/lib/imgbb"
+import { createTuition } from "@/lib/actions/tuitions"
 
 type TuitionMode = "online" | "offline" | "both"
 
@@ -43,7 +44,7 @@ type TuitionFormValues = {
 
 type FormErrors = Partial<Record<keyof TuitionFormValues, string>>
 
-const initialValues: TuitionFormValues = {
+export const initialValues: TuitionFormValues = {
   title: "",
   subject: "",
   classLevel: "",
@@ -197,7 +198,7 @@ function PostTuitionForm() {
     setBannerError(null)
   }
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
     const nextErrors = validate(values)
@@ -230,7 +231,8 @@ function PostTuitionForm() {
     }
 
     // TODO: POST this to the tuition API once it exists.
-    console.log("[post-tuition] new tuition", payload)
+    const result = await createTuition(payload);
+    console.log("[post-tuition] new tuition", payload, result)
 
     toast.add({
       type: "success",
