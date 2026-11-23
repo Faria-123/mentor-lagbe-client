@@ -17,10 +17,10 @@ MentorLagbe client: Next.js 16 (App Router, Turbopack) + Tailwind v4 + shadcn. T
 - `npm run dev`, `npm run build` (Next.js 16 + Turbopack).
 - `npm run typecheck` — `tsc --noEmit`; currently passes.
 - `npm run lint` — ESLint flat config over the whole repo. For focused checks use `npx eslint <path>`; there is no `next lint` subcommand.
-- Format only files you change: `npx prettier --write <files>`. Avoid `npm run format`; it rewrites every TS/TSX file and 26 files currently fail `prettier --check` at baseline.
-- No test runner and no CI are configured. Verify with typecheck → lint → build.
+- Format only files you change: `npx prettier --write <files>`. Avoid `npm run format` — it globs all TS/TSX and would rewrite the 28 files that currently fail `prettier --check` (mostly `components/ui/*` plus scattered `app/` files; run the check for the current list).
+- No test runner and no CI are configured. Verify with typecheck → lint → build. `typecheck` and `build` exit 0; `lint` exits 1 at baseline because of the 2 errors below, so your change is clean only if lint still reports exactly those.
 
-Baseline: `npm run lint` reports 2 pre-existing errors (`react-hooks/set-state-in-effect`) in `components/ui/carousel.tsx` and `hooks/use-mobile.ts`. Don't attribute them to your change unless you edited those files.
+Baseline: `npm run lint` reports exactly 2 pre-existing errors (`react-hooks/set-state-in-effect`) in `components/ui/carousel.tsx` and `hooks/use-mobile.ts`. Don't attribute them to your change unless you edited those files. `next build` also prints stray `user null` lines from a debug `console.log` in `components/site/navbar.tsx` — pre-existing noise, not a failure.
 
 ## Build requires `.env`
 
@@ -45,9 +45,9 @@ Baseline: `npm run lint` reports 2 pre-existing errors (`react-hooks/set-state-i
 ## Structure
 
 - `app/(public)/` — landing, pricing, how-it-works. `app/(auth)/` — sign-in, sign-up, wrapped in `AuthShell`. New pages go in the matching route group.
-- `app/dashboard/` — authenticated pages (currently `profile/`), no layout yet; it sits directly under the root layout (navbar + footer). Client-side form components go in `components/profile/`.
-- `@/*` maps to the repository root (`@/components/...`, `@/lib/...`), not `src/`.
-- Route groups are `(public)` / `(auth)`; there is no `src/` directory.
+- `app/dashboard/` — `profile/` is the only real page; `student/`, `tutor/`, `admin/` are unformatted placeholders (work in progress). Its `layout.tsx` is a pass-through `<div>` with **no auth check**, and there is no `middleware.ts` — nothing protects these routes server-side (they prerender as static). The only guard in the app is client-side, in `components/profile/profile-form.tsx`. New dashboard pages must add their own guard.
+- Client-side form components live in `components/profile/` or a sibling `components/<feature>/` folder.
+- `@/*` maps to the repository root (`@/components/...`, `@/lib/...`), not `src/`. Route groups are `(public)` / `(auth)`; there is no `src/` directory.
 
 ## Conventions and quirks
 
@@ -56,4 +56,5 @@ Baseline: `npm run lint` reports 2 pre-existing errors (`react-hooks/set-state-i
 - `cn` is the `cn` npm package (clsx + tailwind-merge replacement; its `engines` require Node 22+). Components import it from `"cn"`; `@/lib/utils` only re-exports it.
 - UI primitives use `data-slot` attributes and `cva` variants; keep new components consistent.
 - `lib/highlighter.tsx` is a Shiki highlighter with lazy per-language imports. Register new languages in its `languages` map and examples in `aliases`.
+- Payments are not wired: `POST /api/stripe/checkout` does not exist and there is no Stripe dependency. `components/pricing/subscribe-button.tsx` handles the failed fetch by showing a "not connected yet" message — that fallback is intentional, not a bug.
 - Theme handling is client-side via `components/theme-provider.tsx`; pressing `d` toggles dark mode outside typing targets. Don't add a conflicting global `d` shortcut.
