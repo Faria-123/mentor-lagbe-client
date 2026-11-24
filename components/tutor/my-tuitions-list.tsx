@@ -47,7 +47,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { toast } from "@/components/ui/toast"
-import { demoTuitions } from "@/lib/tuition-demo"
 import {
   approvalStatusLabels,
   toTuitionFormValues,
@@ -57,6 +56,8 @@ import {
   type TuitionApprovalStatus,
   type TuitionFormValues,
 } from "@/lib/tuition"
+
+type ApiTuition = Omit<Tuition, "id"> & { _id: string }
 
 const approvalStyles: Record<TuitionApprovalStatus, string> = {
   pending:
@@ -204,10 +205,31 @@ function TuitionCard({
 }
 
 function MyTuitionsList() {
-  // TODO: replace the demo rows with tuitions fetched for the signed-in tutor.
-  const [tuitions, setTuitions] = React.useState<Tuition[]>(demoTuitions)
+  const [tuitions, setTuitions] = React.useState<Tuition[]>([])
   const [editing, setEditing] = React.useState<Tuition | null>(null)
   const [deleting, setDeleting] = React.useState<Tuition | null>(null)
+
+  React.useEffect(() => {
+    const fetchTuitions = async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tuitions`)
+
+        if (!res.ok) {
+          throw new Error("Failed to fetch tuitions")
+        }
+
+        const data: ApiTuition[] = await res.json()
+
+        setTuitions(
+          data.map(({ _id, ...tuition }) => ({ ...tuition, id: _id }))
+        )
+      } catch (error) {
+        console.error("Error fetching tuitions:", error)
+      }
+    }
+
+    fetchTuitions()
+  }, [])
 
   const activeCount = tuitions.filter((tuition) => tuition.isActive).length
 
@@ -250,21 +272,43 @@ function MyTuitionsList() {
     })
   }
 
-  function handleDelete() {
-    if (!deleting) {
-      return
+  async function handleDelete() {
+    if (!deleting) return
+
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/tuitions/${deleting.id}`,
+        {
+          method: "DELETE",
+        }
+      )
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to delete tuition")
+      }
+
+      // Update UI only after successful API deletion
+      setTuitions((items) => items.filter((item) => item.id !== deleting.id))
+
+      setDeleting(null)
+
+      toast.add({
+        type: "success",
+        title: "Tuition deleted",
+        description: "The post has been removed from your dashboard.",
+      })
+    } catch (error) {
+      console.error("Delete error:", error)
+
+      toast.add({
+        type: "error",
+        title: "Delete failed",
+        description: "Could not delete the tuition. Please try again.",
+      })
     }
-
-    setTuitions((items) => items.filter((item) => item.id !== deleting.id))
-    setDeleting(null)
-
-    toast.add({
-      type: "success",
-      title: "Tuition deleted",
-      description: "The post has been removed from your dashboard.",
-    })
   }
-
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">

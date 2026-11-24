@@ -31,28 +31,54 @@ function PostTuitionForm() {
     return <Skeleton className="h-[32rem] w-full rounded-xl" />
   }
 
-  function handleSubmit(values: TuitionFormValues, bannerUrl: string | null) {
-    // Shape the API can persist as-is; approval starts as pending.
-    const payload = {
-      ...toTuitionNumbers(values),
-      bannerImage: bannerUrl,
-      approvalStatus: "pending" as const,
-      isActive: true,
-      tutorId: user?.id ?? null,
-      createdAt: new Date().toISOString(),
+  const userId = user.id
+
+  async function handleSubmit(
+    values: TuitionFormValues,
+    bannerUrl: string | null
+  ) {
+    try {
+      const payload = {
+        ...toTuitionNumbers(values),
+        bannerImage: bannerUrl,
+        approvalStatus: "pending" as const,
+        isActive: true,
+        tutorId: userId,
+        createdAt: new Date().toISOString(),
+      }
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tuitions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      })
+
+      if (!res.ok) {
+        throw new Error("Failed to post tuition")
+      }
+
+      const data = await res.json()
+
+      console.log("Tuition created:", data)
+
+      toast.add({
+        type: "success",
+        title: "Tuition submitted",
+        description: "It is pending admin approval.",
+      })
+
+      setFormKey((key) => key + 1)
+    } catch (error) {
+      console.error("Post tuition error:", error)
+
+      toast.add({
+        type: "error",
+        title: "Submission failed",
+        description: "Something went wrong. Please try again.",
+      })
     }
-
-    // TODO: POST this to the tuition API once it exists.
-    console.log("[post-tuition] new tuition", payload)
-
-    toast.add({
-      type: "success",
-      title: "Tuition submitted",
-      description: "It is pending admin approval.",
-    })
-
-    // Remount the form so every field and the banner go back to empty.
-    setFormKey((key) => key + 1)
   }
 
   return (

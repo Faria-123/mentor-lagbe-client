@@ -10,7 +10,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Repository guide
 
-MentorLagbe client: Next.js 16 (App Router, Turbopack) + React 19 + Tailwind v4 + shadcn (`base-nova`). Built against `Assignment 9-Category_001.pdf` at the repo root, so several features are deliberate stubs.
+MentorLagbe client: Next.js 16 (App Router, Turbopack) + React 19 + Tailwind v4 + shadcn (`base-nova`). Node 22+ is required by the `cn` package. Built against `Assignment 9-Category_001.pdf` at the repo root, so several features are deliberate stubs; `README.md` is still the stock Next/shadcn template.
 
 ## Commands
 
@@ -30,20 +30,23 @@ MentorLagbe client: Next.js 16 (App Router, Turbopack) + React 19 + Tailwind v4 
 
 `next build` (and `next dev`) fail without a `.env` file present: `lib/auth.ts` constructs a `MongoClient` from `BETTER_AUTH_DB_URI` at module import, and the `/api/auth/[...all]` route pulls it in during page-data collection. The failure surfaces as `Failed to collect page data for /api/auth/[...all]`.
 
-`.env` is gitignored; `.env.example` only documents `NEXT_PUBLIC_DEMO_AUTH`. Vars actually referenced by code:
+`.env` is gitignored, and `.env.example` is incomplete — it only lists `NEXT_PUBLIC_DEMO_AUTH`, `IMGBB_API_KEY` and `NEXT_PUBLIC_API_URL`. Vars in play:
 
-- `BETTER_AUTH_DB_URI` — required, build fails without it (database name is hard-coded as `mentorlagbe`).
+- `BETTER_AUTH_DB_URI` — required; `lib/auth.ts` builds the `MongoClient` at module import and hard-codes the DB name `mentorlagbe`. Without it, build fails collecting page data for `/api/auth/[...all]`.
+- `BETTER_AUTH_SECRET` — Better Auth 1.7.26 falls back to a public default in dev and throws in production; set a random value of 32+ chars.
 - `BETTER_AUTH_URL` — client `baseURL` in `lib/auth-client.ts`; also read by Better Auth on the server.
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — optional; build warns but succeeds.
-- `IMGBB_API_KEY` — optional; `POST /api/upload` returns 503 without it, so the tuition form shows "Image upload is not configured" while the rest of the form still works.
-- `NEXT_PUBLIC_API_URL` — base URL read by `lib/actions/tuitions.ts` (`createTuition`). Not set in `.env` and no component calls it yet; leaving it unset makes that fetch target `undefined/tuitions`.
+- `IMGBB_API_KEY` — optional; without it `POST /api/upload` returns 503 and `uploadBannerImage` falls back to a compressed data URL, so banners still render. Add a key to use ImgBB.
+- `NEXT_PUBLIC_API_URL` — base URL for the Express/Mongo API in `../mentor-lagbe-server`; used by `lib/actions/tuitions.ts`, `components/tutor/post-tuition-form.tsx` and `components/tutor/my-tuitions-list.tsx`. Set in the local `.env`.
 - `NEXT_PUBLIC_DEMO_AUTH` — no longer read; only mentioned in a commented-out demo block in `components/session-provider.tsx`.
 
 ## Auth (Better Auth + MongoDB)
 
 - Server config in `lib/auth.ts` (`user.additionalFields`: `role`, `phone`, `bio`), client in `lib/auth-client.ts`, catch-all handler `app/api/auth/[...all]/route.ts`. Sign-in/sign-up forms live in `components/auth/` and call `authClient.*` directly.
+- `role` is a sign-up choice (including `admin`) and is not enforced server-side; it only drives UI.
 - `inferAdditionalFields(...)` must sit inside the `plugins: []` array of `createAuthClient`. Better Auth reads additional fields from `options.plugins` only — spreading it at the top level silently drops them from `session.user.*` and from `updateUser`'s input type. The field list is duplicated between `lib/auth.ts` and `lib/auth-client.ts`; keep them in sync.
-- `components/session-provider.tsx` wraps `authClient.useSession()` and exposes `{ user, isPending, signOut }` (`user` is a mapped `SessionUser` from `lib/types.ts`). It is consumed by `components/site/navbar.tsx` and `components/pricing/subscribe-button.tsx`.
+- Better Auth 1.7.26 omits additional fields from `signUp.email`'s input type, so `components/auth/sign-up-form.tsx` widens the payload with a cast. Keep it until the types catch up.
+- `components/session-provider.tsx` wraps `authClient.useSession()` and exposes `{ user, isPending, signOut }` (`user` is a mapped `SessionUser` from `lib/types.ts`). It is consumed by `components/site/navbar.tsx`, `components/profile/profile-form.tsx`, `components/tutor/post-tuition-form.tsx`, `components/pricing/subscribe-button.tsx` and `app/components/DashboardSidebar.tsx`. `user.plan` is hard-coded to `"free"`, so Pro gating is not real yet.
 - Two `useSession` exports exist: import the one from `@/components/session-provider` in components; the `lib/auth-client` one is Better Auth's raw hook and is only used inside the provider (see the build failure above for why not to call it elsewhere).
 - `authClient.updateUser()` refreshes the session cookie and flips Better Auth's client session signal, so `useSession()` re-renders and the navbar avatar picks up a new `user.image` with no manual refetch.
 - Private routes must wait for `isPending === false` before redirecting to `/sign-in` — see the guard in `components/profile/profile-form.tsx`; otherwise reloading while signed in bounces the user to login. Sign-in honours `?next=` (see `app/(auth)/sign-in/page.tsx`).
@@ -53,7 +56,7 @@ MentorLagbe client: Next.js 16 (App Router, Turbopack) + React 19 + Tailwind v4 
 - `app/(public)/` — landing, pricing, how-it-works. `app/(auth)/` — sign-in, sign-up, wrapped in `AuthShell`. New pages go in the matching route group.
 - `app/dashboard/` — `profile/`, `tutor/post-tuition/` and `tutor/my-tuitions/` are real pages; `student/`, `tutor/`, `tutor/applicants/`, `admin/` are unformatted placeholders. Its `layout.tsx` renders `SidebarProvider` + `DashboardSidebar` with **no auth check**, and there is no `middleware.ts` — these routes prerender as static. The only guard in the app is client-side, in `components/profile/profile-form.tsx` and `components/tutor/post-tuition-form.tsx`. New dashboard pages must add their own guard.
 - Sidebar links per role live in `lib/dashboard-menu.ts` (`DashboardMenuItem` type + `menuItemByRole`). Add a route there when you add a `app/dashboard/<role>/...` page; `DashboardSidebar` picks the list from `user.role` and highlights the exact matching URL.
-- Tuition domain types, validation and conversion helpers live in `lib/tuition.ts`; `lib/tuition-demo.ts` holds placeholder rows. `components/tutor/tuition-form.tsx` is the shared create/edit form behind both `post-tuition` and the `my-tuitions` edit dialog. `my-tuitions` CRUD only mutates client state — nothing is persisted until an API is wired.
+- Tuition domain types, validation and conversion helpers live in `lib/tuition.ts`; `lib/tuition-demo.ts` is now empty and unused. `components/tutor/tuition-form.tsx` is the shared create/edit form behind both `post-tuition` and the `my-tuitions` edit dialog. `my-tuitions` fetches `${NEXT_PUBLIC_API_URL}/tuitions` and normalizes Mongo `_id` to `Tuition.id`; create and delete hit the API, but edit/toggle still only mutate local state. The page has no session guard, so signed-out visitors see the API rows.
 - `app/components/` is a second, non-standard component folder holding only `DashboardSidebar.tsx`, imported by `app/dashboard/layout.tsx` via the relative `../components/...` path (not the `@/components` alias). Prefer `components/<feature>/` for new work.
 - Navbar, footer, and the dashboard sidebar link to routes that do not exist yet (`/tuitions`, `/about`, `/dashboard/student/my-applications`, `/dashboard/admin/users`, `/dashboard/admin/tuitions`, `/dashboard/admin/transactions`). They are planned placeholders, not broken links to fix.
 - `@/*` maps to the repository root (`@/components/...`, `@/lib/...`), not `src/`. There is no `src/` directory.
@@ -65,6 +68,9 @@ MentorLagbe client: Next.js 16 (App Router, Turbopack) + React 19 + Tailwind v4 
 - `cn` is the `cn` npm package (clsx + tailwind-merge replacement; `engines: node >=22`). Components import it from `"cn"`; `@/lib/utils` only re-exports it.
 - UI primitives use `data-slot` attributes and `cva` variants; keep new components consistent.
 - `lib/highlighter.tsx` is a Shiki highlighter with lazy per-language imports. Register new languages in its `languages` map and examples in `aliases`.
-- Tuition banner images upload through `POST /api/upload` (server-only `IMGBB_API_KEY`) using the `uploadBannerImage` helper in `lib/imgbb.ts`; never ship the ImgBB key to the client.
+- Tuition banner images upload through `POST /api/upload` (server-only `IMGBB_API_KEY`) using the `uploadBannerImage` helper in `lib/imgbb.ts`; without a key it compresses the image to a data URL instead. Never ship the ImgBB key to the client.
 - Payments are not wired: `POST /api/stripe/checkout` does not exist and there is no Stripe dependency. `components/pricing/subscribe-button.tsx` handles the failed fetch by showing a "not connected yet" message — that fallback is intentional, not a bug.
 - Theme handling is client-side via `components/theme-provider.tsx`; pressing `d` toggles dark mode outside typing targets. Don't add a conflicting global `d` shortcut.
+- In this Next 16 version, route `params`/`searchParams` are Promises — await them (see `app/(auth)/sign-in/page.tsx`), don't read them as sync objects.
+- Toasts use the base-ui manager: `import { toast } from "@/components/ui/toast"` then `toast.add({ type: "success", title, description })`. `<Toaster />` is already mounted in `app/layout.tsx`; there is no sonner dependency.
+- User-uploaded banner and local-preview URLs render with plain `<img>` plus an `eslint-disable` on purpose (no remote image domains are configured). Don't convert them to `next/image`.
