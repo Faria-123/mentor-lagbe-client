@@ -17,14 +17,14 @@ MentorLagbe client: Next.js 16 (App Router, Turbopack) + React 19 + Tailwind v4 
 - `npm run dev`, `npm run build` (Next.js 16 + Turbopack).
 - `npm run typecheck` — `tsc --noEmit`; passes.
 - `npm run lint` — ESLint flat config over the whole repo. For focused checks use `npx eslint <path>`; there is no `next lint` subcommand.
-- Format only files you change: `npx prettier --write <files>`. Never run `npm run format`: it globs all TS/TSX and would rewrite the 29 files that already fail `prettier --check` (most of `components/ui/*`, the `app/dashboard/**` placeholders, `app/layout.tsx`, `app/api/auth/[...all]/route.ts`, `next.config.ts`). Re-run the check instead of trusting that list.
+- Format only files you change: `npx prettier --write <files>`. Never run `npm run format`: it globs all TS/TSX and would rewrite the ~31 files that already fail `prettier --check` (most of `components/ui/*`, the `app/dashboard/**` placeholders, `app/layout.tsx`, `app/api/auth/[...all]/route.ts`, `lib/tuition-demo.ts`, `next.config.ts`). Re-run the check instead of trusting that list.
 - No test runner and no CI are configured. Verify in order: `typecheck` → `lint` → `build`.
 
 ## Baseline failures
 
 - `npm run lint` exits 1 with exactly 2 `react-hooks/set-state-in-effect` errors, in `components/ui/carousel.tsx` and `hooks/use-mobile.ts`, and 0 warnings. Anything else is yours.
 - `npm run build` passes, but there is a trap: Better Auth's raw `useSession` (from `@/lib/auth-client`) only works in client components. If a component that calls it gets pulled into static prerender, the build fails with `TypeError: (0, ...useRef) is not a function`. Use `@/components/session-provider` or add `"use client"` (this is why `app/components/DashboardSidebar.tsx` is a client component).
-- Expect `user null` noise from the debug `console.log` in `components/site/navbar.tsx` and a "Social provider google is missing clientId or clientSecret" warning when Google keys are absent. Both are pre-existing, not failures.
+- Expect `user null` noise from the debug `console.log` in `components/site/navbar.tsx`, a "Social provider google is missing clientId or clientSecret" warning when Google keys are absent, and non-fatal Better Auth "Could not create the MongoDB index ..." errors if the configured database rejects index creation. The build still succeeds.
 
 ## Build requires `.env`
 
@@ -37,7 +37,7 @@ MentorLagbe client: Next.js 16 (App Router, Turbopack) + React 19 + Tailwind v4 
 - `BETTER_AUTH_URL` — client `baseURL` in `lib/auth-client.ts`; also read by Better Auth on the server.
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — optional; build warns but succeeds.
 - `IMGBB_API_KEY` — optional; without it `POST /api/upload` returns 503 and `uploadBannerImage` falls back to a compressed data URL, so banners still render. Add a key to use ImgBB.
-- `NEXT_PUBLIC_API_URL` — base URL for the Express/Mongo API in `../mentor-lagbe-server`; used by `lib/actions/tuitions.ts`, `components/tutor/post-tuition-form.tsx` and `components/tutor/my-tuitions-list.tsx`. Set in the local `.env`.
+- `NEXT_PUBLIC_API_URL` — base URL for the Express/Mongo API in `../mentor-lagbe-server`; used directly by `components/tutor/post-tuition-form.tsx` and `components/tutor/my-tuitions-list.tsx`. `lib/actions/tuitions.ts` defines an unused `createTuition` helper, so don't assume it is the live write path. Set in the local `.env`.
 - `NEXT_PUBLIC_DEMO_AUTH` — no longer read; only mentioned in a commented-out demo block in `components/session-provider.tsx`.
 
 ## Auth (Better Auth + MongoDB)
@@ -54,11 +54,11 @@ MentorLagbe client: Next.js 16 (App Router, Turbopack) + React 19 + Tailwind v4 
 ## Structure
 
 - `app/(public)/` — landing, pricing, how-it-works. `app/(auth)/` — sign-in, sign-up, wrapped in `AuthShell`. New pages go in the matching route group.
-- `app/dashboard/` — `profile/`, `tutor/post-tuition/` and `tutor/my-tuitions/` are real pages; `student/`, `tutor/`, `tutor/applicants/`, `admin/` are unformatted placeholders. Its `layout.tsx` renders `SidebarProvider` + `DashboardSidebar` with **no auth check**, and there is no `middleware.ts` — these routes prerender as static. The only guard in the app is client-side, in `components/profile/profile-form.tsx` and `components/tutor/post-tuition-form.tsx`. New dashboard pages must add their own guard.
+- `app/dashboard/` — `profile/`, `tutor/post-tuition/` and `tutor/my-tuitions/` are real pages; `student/`, `student/my-applications/`, `tutor/`, `tutor/applicants/`, `admin/` are unformatted placeholders. Its `layout.tsx` renders `SidebarProvider` + `DashboardSidebar` with **no auth check**, and there is no `middleware.ts` — these routes prerender as static. The only guard in the app is client-side, in `components/profile/profile-form.tsx` and `components/tutor/post-tuition-form.tsx`. New dashboard pages must add their own guard.
 - Sidebar links per role live in `lib/dashboard-menu.ts` (`DashboardMenuItem` type + `menuItemByRole`). Add a route there when you add a `app/dashboard/<role>/...` page; `DashboardSidebar` picks the list from `user.role` and highlights the exact matching URL.
 - Tuition domain types, validation and conversion helpers live in `lib/tuition.ts`; `lib/tuition-demo.ts` is now empty and unused. `components/tutor/tuition-form.tsx` is the shared create/edit form behind both `post-tuition` and the `my-tuitions` edit dialog. `my-tuitions` fetches `${NEXT_PUBLIC_API_URL}/tuitions` and normalizes Mongo `_id` to `Tuition.id`; create and delete hit the API, but edit/toggle still only mutate local state. The page has no session guard, so signed-out visitors see the API rows.
 - `app/components/` is a second, non-standard component folder holding only `DashboardSidebar.tsx`, imported by `app/dashboard/layout.tsx` via the relative `../components/...` path (not the `@/components` alias). Prefer `components/<feature>/` for new work.
-- Navbar, footer, and the dashboard sidebar link to routes that do not exist yet (`/tuitions`, `/about`, `/dashboard/student/my-applications`, `/dashboard/admin/users`, `/dashboard/admin/tuitions`, `/dashboard/admin/transactions`). They are planned placeholders, not broken links to fix.
+- Navbar, footer, and the dashboard sidebar link to routes that do not exist yet (`/tuitions`, `/about`, `/dashboard/admin/users`, `/dashboard/admin/tuitions`, `/dashboard/admin/transactions`). They are planned placeholders, not broken links to fix.
 - `@/*` maps to the repository root (`@/components/...`, `@/lib/...`), not `src/`. There is no `src/` directory.
 
 ## Conventions and quirks
