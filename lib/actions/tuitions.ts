@@ -10,3 +10,9 @@ export const createTuition = async (data: TuitionFormValues) => {
   })
   return res.json()
 }
+
+export const browsJobs = async (query = "") => {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tuitions?${query}`);
+  return res.json();
+
+}

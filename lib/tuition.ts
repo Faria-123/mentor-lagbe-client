@@ -22,6 +22,8 @@ export type Tuition = Omit<
   "mode" | "monthlyFee" | "daysPerWeek"
 > & {
   id: string
+  subject: string
+  title: string
   mode: TuitionMode
   monthlyFee: number
   daysPerWeek: number
@@ -30,6 +32,53 @@ export type Tuition = Omit<
   isActive: boolean
   tutorId: string | null
   createdAt: string
+}
+
+/** Mongo document returned by the API before `_id` is normalized to `id`. */
+export type TuitionApiRecord = Omit<Tuition, "id"> & { _id: string }
+
+/** Values collected by the browse-tuitions search and filter controls. */
+export type TuitionFilterValues = {
+  query: string
+  subject: string
+  classLevel: string
+  mode: "" | TuitionMode
+}
+
+export function fromTuitionApiRecord(record: TuitionApiRecord): Tuition {
+  const { _id, ...tuition } = record
+  return { ...tuition, id: _id }
+}
+
+/** Only approved, active posts are visible on the public browse page. */
+export function isPublicTuition(tuition: Tuition) {
+  return tuition.approvalStatus === "approved" && tuition.isActive
+}
+
+/** Applies the browse filters to an already-approved list of tuitions. */
+export function filterTuitions(
+  tuitions: Tuition[],
+  filters: TuitionFilterValues
+): Tuition[] {
+  const query = filters.query.trim().toLowerCase()
+  const subject = filters.subject.trim().toLowerCase()
+  const classLevel = filters.classLevel.trim().toLowerCase()
+
+  return tuitions.filter((tuition) => {
+    const matchesQuery =
+      !query ||
+      tuition.title.toLowerCase().includes(query) ||
+      tuition.subject.toLowerCase().includes(query)
+    const matchesSubject = !subject || tuition.subject.toLowerCase() === subject
+    const matchesClassLevel =
+      !classLevel || tuition.classLevel.toLowerCase() === classLevel
+    const matchesMode =
+      !filters.mode ||
+      tuition.mode === filters.mode ||
+      (filters.mode !== "both" && tuition.mode === "both")
+
+    return matchesQuery && matchesSubject && matchesClassLevel && matchesMode
+  })
 }
 
 export const classLevels = [
@@ -47,6 +96,21 @@ export const tuitionModes: { value: TuitionMode; label: string }[] = [
   { value: "offline", label: "Offline" },
   { value: "both", label: "Online & offline" },
 ]
+
+export function tuitionModeLabel(mode: TuitionMode) {
+  return tuitionModes.find((option) => option.value === mode)?.label ?? mode
+}
+
+const tuitionDateFormatter = new Intl.DateTimeFormat("en-GB", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+  timeZone: "UTC",
+})
+
+export function formatTuitionDate(value: string) {
+  return tuitionDateFormatter.format(new Date(value))
+}
 
 export const emptyTuitionValues: TuitionFormValues = {
   title: "",
